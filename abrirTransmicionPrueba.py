@@ -49,7 +49,7 @@ if __name__ == "__main__":
     # Define la descripción de tu pipeline aquí para que sea más fácil de usar
     PIPELINE_DESCRIPTION = (
         "udpsrc port=5000 caps=\"application/x-rtp, media=video, clock-rate=90000, encoding-name=H264, payload=96\" "
-        "! rtph264depay ! h264parse ! decodebin ! videoconvert ! autovideosink"
+        "! rtph264depay ! h264parse ! decodebin ! videoconvert ! d3dvideosink"
     )
 
     client = GStreamerPipeline(PIPELINE_DESCRIPTION)
