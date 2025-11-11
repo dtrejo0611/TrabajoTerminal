@@ -67,8 +67,8 @@
                  </size>
                 </property>
                 <property name="styleSheet">
-                 <string notr="true">background-color: rgb(0, 0, 0);
-color: rgb(255, 255, 255);</string>
+                 <string notr="true">color: rgb(255, 255, 255);
+background-color: qlineargradient(spread:pad, x1:0.486, y1:0, x2:0.502, y2:0.994318, stop:0 rgba(212, 175, 55, 255), stop:1 rgba(100, 100, 100, 255));</string>
                 </property>
                 <property name="text">
                  <string>Usuario</string>
@@ -133,8 +133,8 @@ color: rgb(0, 0, 0);</string>
                  </size>
                 </property>
                 <property name="styleSheet">
-                 <string notr="true">background-color: rgb(0, 0, 0);
-color: rgb(255, 255, 255);</string>
+                 <string notr="true">color: rgb(255, 255, 255);
+background-color: qlineargradient(spread:pad, x1:0.486, y1:0, x2:0.502, y2:0.994318, stop:0 rgba(212, 175, 55, 255), stop:1 rgba(100, 100, 100, 255));</string>
                 </property>
                 <property name="text">
                  <string>Contraseña</string>
@@ -186,6 +186,10 @@ color: rgb(0, 0, 0);</string>
           </item>
           <item>
            <widget class="QPushButton" name="botonInicioSesion">
+            <property name="styleSheet">
+             <string notr="true">color: rgb(255, 255, 255);
+background-color: qlineargradient(spread:pad, x1:0.486, y1:0, x2:0.502, y2:0.994318, stop:0 rgba(212, 175, 55, 255), stop:1 rgba(100, 100, 100, 255));</string>
+            </property>
             <property name="text">
              <string>Iniciar sesion</string>
             </property>

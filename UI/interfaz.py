@@ -42,8 +42,8 @@ class Ui_MainWindow(object):
         sizePolicy.setHeightForWidth(self.label.sizePolicy().hasHeightForWidth())
         self.label.setSizePolicy(sizePolicy)
         self.label.setMinimumSize(QtCore.QSize(50, 20))
-        self.label.setStyleSheet("background-color: rgb(0, 0, 0);\n"
-"color: rgb(255, 255, 255);")
+        self.label.setStyleSheet("color: rgb(255, 255, 255);\n"
+"background-color: qlineargradient(spread:pad, x1:0.486, y1:0, x2:0.502, y2:0.994318, stop:0 rgba(212, 175, 55, 255), stop:1 rgba(100, 100, 100, 255));")
         self.label.setAlignment(QtCore.Qt.AlignCenter)
         self.label.setObjectName("label")
         self.horizontalLayout.addWidget(self.label)
@@ -70,8 +70,8 @@ class Ui_MainWindow(object):
         sizePolicy.setHeightForWidth(self.label_2.sizePolicy().hasHeightForWidth())
         self.label_2.setSizePolicy(sizePolicy)
         self.label_2.setMinimumSize(QtCore.QSize(80, 0))
-        self.label_2.setStyleSheet("background-color: rgb(0, 0, 0);\n"
-"color: rgb(255, 255, 255);")
+        self.label_2.setStyleSheet("color: rgb(255, 255, 255);\n"
+"background-color: qlineargradient(spread:pad, x1:0.486, y1:0, x2:0.502, y2:0.994318, stop:0 rgba(212, 175, 55, 255), stop:1 rgba(100, 100, 100, 255));")
         self.label_2.setAlignment(QtCore.Qt.AlignCenter)
         self.label_2.setObjectName("label_2")
         self.horizontalLayout_2.addWidget(self.label_2)
@@ -91,6 +91,8 @@ class Ui_MainWindow(object):
         self.verticalLayout_3.addLayout(self.horizontalLayout_2)
         self.verticalLayout_4.addLayout(self.verticalLayout_3)
         self.botonInicioSesion = QtWidgets.QPushButton(self.inicioSesion)
+        self.botonInicioSesion.setStyleSheet("color: rgb(255, 255, 255);\n"
+"background-color: qlineargradient(spread:pad, x1:0.486, y1:0, x2:0.502, y2:0.994318, stop:0 rgba(212, 175, 55, 255), stop:1 rgba(100, 100, 100, 255));")
         self.botonInicioSesion.setObjectName("botonInicioSesion")
         self.verticalLayout_4.addWidget(self.botonInicioSesion)
         self.gridLayout_2.addLayout(self.verticalLayout_4, 1, 1, 1, 1)
