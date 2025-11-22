@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['drones']
+
+roboflow:
+  workspace: dtrejo
+  project: ttdjimini-axt3q
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/dtrejo/ttdjimini-axt3q/dataset/1
