@@ -1,2 +1,0 @@
-runs/detect/train15/weights/best.pt filter=lfs diff=lfs merge=lfs -text
-runs/detect/train15/weights/last.pt filter=lfs diff=lfs merge=lfs -text
