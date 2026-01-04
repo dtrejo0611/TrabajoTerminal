@@ -16,7 +16,7 @@ STREAM_COMMAND = (
 
 def start_stream():
     """Inicia la tubería de streaming como un proceso secundario."""
-    print("🎬 Iniciando streaming de cámara...")
+    print("Iniciando streaming de cámara...")
     
     # Usamos shell=True para ejecutar toda la tubería como un solo comando de shell
     # Esto es necesario debido al uso del pipe (|) entre rpicam-vid y gst-launch-1.0
@@ -27,12 +27,12 @@ def start_stream():
         stderr=subprocess.PIPE,
         text=True
     )
-    print(f"✅ Streaming iniciado. PID: {process.pid}")
+    print(f"Streaming iniciado. PID: {process.pid}")
     return process
 
 def stop_stream(process):
     """Detiene el proceso de streaming."""
-    print("\n🛑 Deteniendo streaming...")
+    print("\nDeteniendo streaming...")
     
     # En sistemas Linux (como Raspberry Pi OS), es mejor usar un grupo de procesos
     # para asegurar que tanto rpicam-vid como gst-launch-1.0 se detengan.
@@ -40,14 +40,14 @@ def stop_stream(process):
         # Envía una señal de terminación (SIGTERM) al grupo de procesos
         # Esto mata la cadena de comandos (rpicam-vid | gst-launch-1.0)
         subprocess.run(f"pkill -TERM -P {process.pid}", shell=True, check=True)
-        print("✅ Streaming detenido correctamente.")
+        print("Streaming detenido correctamente.")
     except Exception as e:
-        print(f"⚠️ Error al detener el proceso. Intentando kill simple: {e}")
+        print(f"Error al detener el proceso. Intentando kill simple: {e}")
         # En caso de que pkill falle (o si shell=True causa problemas), 
         # se detiene el proceso principal.
         process.terminate()
         process.wait()
-        print("✅ Streaming detenido (por terminate).")
+        print("Streaming detenido (por terminate).")
 
 
 if __name__ == "__main__":
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         stream_process = start_stream()
         
         # Bucle principal para simular el trabajo con los motores
-        print("\n⚙️  El sistema está listo para controlar motores o realizar otras tareas.")
+        print("\nEl sistema está listo para controlar motores o realizar otras tareas.")
         print("   Presiona Ctrl+C para detener el streaming y el script.")
         
         while True:

@@ -9,7 +9,6 @@ import sqlite3
 import os
 from datetime import datetime
 
-# Obtén la ruta a la base de datos (ajusta la ruta si tu .db está en otro lado)
 DB_PATH = "database.db"
 
 def get_db_connection(db_path=DB_PATH):
