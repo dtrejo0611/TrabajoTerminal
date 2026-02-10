@@ -3,7 +3,7 @@ import sys
 from PyQt5 import QtWidgets, QtCore
 from interfaz import Ui_MainWindow
 from recibirCamara import GstOverlayReceiver
-from auth import verificar_usuario, cerrar_sesion  # <--- asegúrate de importar cerrar_sesion
+from auth import verificar_usuario, cerrar_sesion
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, gst_port=5000):
@@ -11,7 +11,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.tabWidget.tabBar().hide()
         self.contrasena.setEchoMode(QtWidgets.QLineEdit.Password)
-        # -- GStreamer Receiver (lo que ya tienes)
         self.displayCam1.setAttribute(QtCore.Qt.WA_NativeWindow, True)
         self.displayCam1.setStyleSheet("background-color: black;")
         self.displayCam1.setText("")
@@ -25,7 +24,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.tabWidget.setTabEnabled(1, False)  # DESHABILITA la pestaña principal al inicio
         self.botonInicioSesion.clicked.connect(self.handle_login)
 
-        # Opcional: Previene cambio de pestaña por teclado o mouse [Extra seguridad]
         self.tabWidget.currentChanged.connect(self.prevent_tab_change)
 
     def showEvent(self, event):
