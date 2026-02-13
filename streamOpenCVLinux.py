@@ -3,7 +3,7 @@ import cv2
 # Pipeline GStreamer ajustada para trabajar con OpenCV
 
 pipeline = (
-    "udpsrc port=5000 caps=\"application/x-rtp, media=video, clock-rate=90000, encoding-name=H264, payload=96\" "
+    "udpsrc port=5002 caps=\"application/x-rtp, media=video, clock-rate=90000, encoding-name=H264, payload=96\" "
     "! rtph264depay ! h264parse ! nvv4l2decoder ! nvvidconv ! videoconvert "
     "! video/x-raw, format=BGR "
     "! appsink sync=false max-buffers=1 drop=true"
