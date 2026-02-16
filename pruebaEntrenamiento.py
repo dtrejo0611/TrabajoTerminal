@@ -12,7 +12,7 @@ except:
 
 # 2. PIPELINE AJUSTADA (Con max-buffers=1)
 pipeline = (
-    "udpsrc port=5002 ! "
+    "udpsrc port=5000 ! "
     "application/x-rtp, encoding-name=H264, payload=96 ! "
     "rtph264depay ! h264parse ! nvv4l2decoder ! "
     "nvvidconv ! "
