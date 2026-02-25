@@ -8,7 +8,7 @@ from ultralytics import YOLO
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 from interfaz import Ui_MainWindow
-from auth import verificar_usuario, cerrar_sesion
+from auth import verificar_usuario, cerrar_sesion, registrar_evento, actualizar_eventos_actuales
 
 # --- 1. CONFIGURACIÓN DEL PIPELINE GSTREAMER ---
 def gstreamer_pipeline(port):
@@ -74,6 +74,12 @@ class YoloWorker(QtCore.QThread):
         self.running = True
         self.camaras = []
         self.modelo = None
+        # NUEVO: Agregamos una variable para almacenar la sesión actual
+        self.sesion_id = None 
+        
+    def set_sesion(self, sesion_id):
+        # NUEVO: Método para que MainWindow actualice la sesión aquí
+        self.sesion_id = sesion_id
 
     def run(self):
         print("--- INICIANDO SISTEMA EN SEGUNDO PLANO ---")
@@ -86,6 +92,7 @@ class YoloWorker(QtCore.QThread):
 
         print("Modelo cargado. Iniciando cámaras...")
         self.camaras = [CameraStream(5000), CameraStream(5001), CameraStream(5002)]
+        regAnt = 0
         
         print("Esperando estabilización de sensores (2s)...")
         time.sleep(2)
@@ -103,11 +110,21 @@ class YoloWorker(QtCore.QThread):
 
             # 3. Anotar frames
             frames_anotados = []
-            for r in resultados:
+            for i, r in enumerate(resultados):
                 frames_anotados.append(r.plot())
+                
+                # Modificado para usar self.sesion_id y comprobar que no sea None
+                if len(r.boxes) > 0 and r.boxes.conf.max().item() > 0.2 and regAnt != i+1:
+                    if self.sesion_id is not None: # Solo registra si alguien hizo login
+                        # Corrección: era r.boxes.conf.max().item() (faltaban los paréntesis en max)
+                        registrar_evento(self.sesion_id, i+1, r.boxes.conf.max().item(), "0", "hola")
+                        
+                        actualizar_eventos_actuales(self.sesion_id)
+                    regAnt = i+1
 
             # 4. Emitir señal a la interfaz
             self.image_update.emit(frames_anotados)
+            
 
         # Limpieza
         for cam in self.camaras:
@@ -123,6 +140,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         super().__init__()
         self.setupUi(self)
         self.tabWidget.tabBar().hide()
+        
+        self.tabWidget.setCurrentIndex(0)
+        
         self.contrasena.setEchoMode(QtWidgets.QLineEdit.Password)
         
         # Configurar displays
@@ -135,6 +155,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.tabWidget.setTabEnabled(1, False)
         self.botonInicioSesion.clicked.connect(self.handle_login)
         self.tabWidget.currentChanged.connect(self.prevent_tab_change)
+        
+        self.reporteAntiguo.clicked.connect(self.ir_a_descargas)
+        self.regreso.clicked.connect(self.ir_a_principal)
 
         # -- Configuración de ComboBoxes --
         self.nombres_camaras = ["Cámara 1", "Cámara 2", "Cámara 3", "Desactivado"]
@@ -159,10 +182,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         
         if sesion_id:
             self.sesion_id = sesion_id
+            
+            # NUEVO: Le pasamos el ID al Worker que ya está corriendo
+            self.yolo_worker.set_sesion(sesion_id) 
+            
             QtWidgets.QMessageBox.information(self, "Login exitoso", f"Sesión iniciada.\nID: {sesion_id}")
             self.tabWidget.setTabEnabled(1, True)
             self.tabWidget.setCurrentIndex(1)
-            # Ya no necesitamos iniciar el worker aquí, ya está corriendo.
         else:
             QtWidgets.QMessageBox.warning(self, "Login fallido", "Usuario o contraseña incorrectos.")
 
@@ -197,6 +223,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def prevent_tab_change(self, index):
         if self.sesion_id is None and index == 1:
             self.tabWidget.setCurrentIndex(0)
+
+    def ir_a_descargas(self):
+        # Cambia a la pestaña de descargarReporte (índice 2)
+        self.tabWidget.setCurrentIndex(2)
+
+    def ir_a_principal(self):
+        # Regresa a la pestaña de interfazPrincipal (índice 1)
+        self.tabWidget.setCurrentIndex(1)
 
     def cleanup(self):
         print("Cerrando aplicación...")
