@@ -274,7 +274,8 @@ background-color: qlineargradient(spread:pad, x1:0.486, y1:0, x2:0.502, y2:0.994
               <item>
                <widget class="QComboBox" name="selectorCam1">
                 <property name="styleSheet">
-                 <string notr="true">background-color: rgb(255, 255, 255);</string>
+                 <string notr="true">background-color: rgb(255, 255, 255);
+color: rgb(0, 0, 0);</string>
                 </property>
                </widget>
               </item>
@@ -293,7 +294,8 @@ background-color: qlineargradient(spread:pad, x1:0.486, y1:0, x2:0.502, y2:0.994
                 <item>
                  <widget class="QComboBox" name="selectorCam2">
                   <property name="styleSheet">
-                   <string notr="true">background-color: rgb(255, 255, 255);</string>
+                   <string notr="true">background-color: rgb(255, 255, 255);
+color: rgb(0, 0, 0);</string>
                   </property>
                  </widget>
                 </item>
@@ -328,7 +330,8 @@ background-color: qlineargradient(spread:pad, x1:0.486, y1:0, x2:0.502, y2:0.994
             <item>
              <widget class="QComboBox" name="selectorCam3">
               <property name="styleSheet">
-               <string notr="true">background-color: rgb(255, 255, 255);</string>
+               <string notr="true">background-color: rgb(255, 255, 255);
+color: rgb(0, 0, 0);</string>
               </property>
              </widget>
             </item>
@@ -343,7 +346,8 @@ background-color: qlineargradient(spread:pad, x1:0.486, y1:0, x2:0.502, y2:0.994
                  </sizepolicy>
                 </property>
                 <property name="styleSheet">
-                 <string notr="true">background-color: rgb(255, 255, 255);</string>
+                 <string notr="true">background-color: rgb(255, 255, 255);
+color: rgb(0, 0, 0);</string>
                 </property>
                </widget>
               </item>

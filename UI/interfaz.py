@@ -122,7 +122,8 @@ class Ui_MainWindow(object):
         self.displayCam1.setObjectName("displayCam1")
         self.LayoutCam1.addWidget(self.displayCam1)
         self.selectorCam1 = QtWidgets.QComboBox(self.interfazPrincipal)
-        self.selectorCam1.setStyleSheet("background-color: rgb(255, 255, 255);")
+        self.selectorCam1.setStyleSheet("background-color: rgb(255, 255, 255);\n"
+"color: rgb(0, 0, 0);")
         self.selectorCam1.setObjectName("selectorCam1")
         self.LayoutCam1.addWidget(self.selectorCam1)
         self.layoutCam2 = QtWidgets.QVBoxLayout()
@@ -133,7 +134,8 @@ class Ui_MainWindow(object):
         self.displayCam2.setObjectName("displayCam2")
         self.layoutCam2.addWidget(self.displayCam2)
         self.selectorCam2 = QtWidgets.QComboBox(self.interfazPrincipal)
-        self.selectorCam2.setStyleSheet("background-color: rgb(255, 255, 255);")
+        self.selectorCam2.setStyleSheet("background-color: rgb(255, 255, 255);\n"
+"color: rgb(0, 0, 0);")
         self.selectorCam2.setObjectName("selectorCam2")
         self.layoutCam2.addWidget(self.selectorCam2)
         self.LayoutCam1.addLayout(self.layoutCam2)
@@ -155,7 +157,8 @@ class Ui_MainWindow(object):
         self.displayCam3.setObjectName("displayCam3")
         self.layoutCam3.addWidget(self.displayCam3)
         self.selectorCam3 = QtWidgets.QComboBox(self.interfazPrincipal)
-        self.selectorCam3.setStyleSheet("background-color: rgb(255, 255, 255);")
+        self.selectorCam3.setStyleSheet("background-color: rgb(255, 255, 255);\n"
+"color: rgb(0, 0, 0);")
         self.selectorCam3.setObjectName("selectorCam3")
         self.layoutCam3.addWidget(self.selectorCam3)
         self.verticalLayout_5 = QtWidgets.QVBoxLayout()
@@ -166,7 +169,8 @@ class Ui_MainWindow(object):
         sizePolicy.setVerticalStretch(50)
         sizePolicy.setHeightForWidth(self.eventos.sizePolicy().hasHeightForWidth())
         self.eventos.setSizePolicy(sizePolicy)
-        self.eventos.setStyleSheet("background-color: rgb(255, 255, 255);")
+        self.eventos.setStyleSheet("background-color: rgb(255, 255, 255);\n"
+"color: rgb(0, 0, 0);")
         self.eventos.setObjectName("eventos")
         self.verticalLayout_5.addWidget(self.eventos)
         self.horizontalLayout_3 = QtWidgets.QHBoxLayout()
