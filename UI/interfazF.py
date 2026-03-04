@@ -147,7 +147,7 @@ class Ui_MainWindow(object):
         self.layoutCam3 = QtWidgets.QVBoxLayout()
         self.layoutCam3.setObjectName("layoutCam3")
         self.displayCam3 = QtWidgets.QLabel(self.interfazPrincipal)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.MinimumExpanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.displayCam3.sizePolicy().hasHeightForWidth())
