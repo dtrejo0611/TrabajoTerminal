@@ -135,3 +135,27 @@ def actualizar_eventos_actuales(sesion_id):
         
     finally:
         conn.close()
+
+def obtener_sesiones_con_eventos():
+    """
+    Obtiene una lista de las sesiones que tienen eventos registrados, 
+    junto con la fecha exacta de su primera detección.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        # Hacemos un JOIN para obtener solo las sesiones que tienen eventos
+        # y extraemos el timestamp del evento más antiguo de esa sesión para usarlo como fecha.
+        cur.execute("""
+            SELECT s.id, MIN(e.timestamp) 
+            FROM Sesiones s
+            JOIN EventosDeteccion e ON s.id = e.sesion_id
+            GROUP BY s.id
+            ORDER BY s.id DESC
+        """)
+        return cur.fetchall() # Devuelve una lista de tuplas: [(id_sesion, fecha), ...]
+    except sqlite3.Error as e:
+        print(f"Error al obtener historial de sesiones: {e}")
+        return []
+    finally:
+        conn.close()

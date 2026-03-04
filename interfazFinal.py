@@ -4,11 +4,14 @@ import cv2
 import numpy as np
 import threading
 import time
+import pandas as pd 
 from ultralytics import YOLO
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-from interfaz import Ui_MainWindow
-from auth import verificar_usuario, cerrar_sesion, registrar_evento, actualizar_eventos_actuales
+from PyQt5.QtGui import QStandardItemModel, QStandardItem
+from PyQt5.QtMultimedia import QSound
+from interfazF import Ui_MainWindow
+from auth import verificar_usuario, cerrar_sesion, registrar_evento, actualizar_eventos_actuales, obtener_sesiones_con_eventos
 
 # --- 1. CONFIGURACIÓN DEL PIPELINE GSTREAMER ---
 def gstreamer_pipeline(port):
@@ -68,6 +71,7 @@ class CameraStream:
 # --- 3. WORKER THREAD (YOLO EN SEGUNDO PLANO) ---
 class YoloWorker(QtCore.QThread):
     image_update = QtCore.pyqtSignal(list)
+    eventos_update = QtCore.pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -125,7 +129,7 @@ class YoloWorker(QtCore.QThread):
                     if not estado_deteccion[i]:
                         if self.sesion_id is not None:
                             registrar_evento(self.sesion_id, i+1, r.boxes.conf.max().item(), "0", "hola")
-                            actualizar_eventos_actuales(self.sesion_id)
+                            self.eventos_update.emit()
                         # Marcamos esta cámara como "detectando activamente" para que no vuelva a registrar
                         estado_deteccion[i] = True 
                 else:
@@ -165,9 +169,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.tabWidget.setTabEnabled(1, False)
         self.botonInicioSesion.clicked.connect(self.handle_login)
         self.tabWidget.currentChanged.connect(self.prevent_tab_change)
-        
-        self.reporteAntiguo.clicked.connect(self.ir_a_descargas)
         self.regreso.clicked.connect(self.ir_a_principal)
+        
+        self.reporteAntiguo.clicked.connect(self.abrir_pestana_descargas) # Carga los datos al cambiar de pestaña
+        self.selectorSesion.currentIndexChanged.connect(self.mostrar_tabla_pasada) # Actualiza tabla al cambiar selección
+        self.descargar.clicked.connect(self.descargar_reporte_seleccionado) # Botón de descargar
+        
+        self.modelo_eventos_pasados = QStandardItemModel()
+        self.modelo_eventos_pasados.setHorizontalHeaderLabels(["Cámara", "Confianza", "Hora"])
+        self.vistaDeEventos.setModel(self.modelo_eventos_pasados)
+        
+        header_pasado = self.vistaDeEventos.horizontalHeader()
+        header_pasado.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+        header_pasado.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+        header_pasado.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch)
+        
+        self.descargarEventosSesion.clicked.connect(self.descargar_reporte_actual)
 
         # -- Configuración de ComboBoxes --
         self.nombres_camaras = ["Cámara 1", "Cámara 2", "Cámara 3", "Desactivado"]
@@ -176,14 +193,55 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             combo.addItems(self.nombres_camaras)
             combo.setCurrentIndex(idx if idx < 3 else 3)
 
-        # -- INICIO AUTOMÁTICO DEL WORKER --
-        # Aquí está el cambio: Iniciamos el hilo inmediatamente al abrir la App
+        # --- CONFIGURACIÓN DE LA TABLA DE EVENTOS ---
+        self.modelo_eventos = QStandardItemModel()
+        self.modelo_eventos.setHorizontalHeaderLabels(["Cámara", "Confianza", "Hora"])
+        self.displayEventos.setModel(self.modelo_eventos)
+        
+        # Ajustar el ancho de las columnas para que se vea bien
+        header = self.displayEventos.horizontalHeader()
+        header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QtWidgets.QHeaderView.Stretch) # La hora ocupa el resto del espacio
+
+        # --- CONEXIÓN DE LA SEÑAL DEL WORKER ---
         self.yolo_worker = YoloWorker()
         self.yolo_worker.image_update.connect(self.actualizar_displays)
-        self.yolo_worker.start()  # <--- SE EJECUTA AHORA, NO AL LOGUEARSE
+        self.yolo_worker.eventos_update.connect(self.refrescar_tabla_eventos) # <--- CONECTAMOS LA SEÑAL
+        self.yolo_worker.eventos_update.connect(self.reproducir_sonido)
+        self.yolo_worker.start()
+        
         
         app = QtWidgets.QApplication.instance()
         app.aboutToQuit.connect(self.cleanup)
+    
+    def refrescar_tabla_eventos(self):
+        if self.sesion_id is None:
+            return
+            
+        # Obtenemos las filas de la BD gracias a tu función de auth.py
+        filas = actualizar_eventos_actuales(self.sesion_id)
+        
+        # Limpiamos los datos actuales de la tabla (por si hay datos viejos)
+        self.modelo_eventos.setRowCount(0)
+        
+        if filas:
+            for fila in filas:
+                # Tu función retorna: id_camara (0), confianza (1), timestamp (2)
+                item_camara = QStandardItem(f"Cámara {fila[0]}")
+                item_confianza = QStandardItem(f"{fila[1]:.2f}")
+                item_hora = QStandardItem(str(fila[2]))
+                
+                # Centramos el texto para que se vea estético
+                item_camara.setTextAlignment(QtCore.Qt.AlignCenter)
+                item_confianza.setTextAlignment(QtCore.Qt.AlignCenter)
+                item_hora.setTextAlignment(QtCore.Qt.AlignCenter)
+                
+                # Añadimos la fila completa a la tabla
+                self.modelo_eventos.appendRow([item_camara, item_confianza, item_hora])
+                
+        # Hacemos scroll automático hacia el evento más reciente (abajo)
+        self.displayEventos.scrollToBottom()        
 
     def handle_login(self):
         usuario = self.usuario.text()
@@ -248,6 +306,141 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.yolo_worker.stop()
         if self.sesion_id:
             cerrar_sesion(self.sesion_id)
+            
+    def descargar_reporte_actual(self):
+        # 1. Validar que haya una sesión iniciada
+        if self.sesion_id is None:
+            QtWidgets.QMessageBox.warning(self, "Error", "No hay una sesión activa para descargar.")
+            return
+            
+        # 2. Obtener los datos usando tu función existente en auth.py
+        filas = actualizar_eventos_actuales(self.sesion_id)
+        
+        if not filas:
+            QtWidgets.QMessageBox.information(self, "Sin datos", "No hay eventos registrados en esta sesión aún.")
+            return
+
+        # 3. Abrir ventana de diálogo para elegir dónde guardar el archivo
+        opciones = QtWidgets.QFileDialog.Options()
+        nombre_por_defecto = f"Reporte_Sesion_{self.sesion_id}.xlsx"
+        
+        ruta_archivo, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, 
+            "Guardar Reporte de Eventos", 
+            nombre_por_defecto, 
+            "Archivos Excel (*.xlsx);;Todos los archivos (*)", 
+            options=opciones
+        )
+
+        # 4. Si el usuario seleccionó una ruta (no canceló)
+        if ruta_archivo:
+            try:
+                # Convertimos las filas (tuplas) a un DataFrame de pandas
+                # Tu base de datos devuelve: id_camara, confianza, timestamp
+                df = pd.DataFrame(filas, columns=["Cámara", "Nivel de Confianza", "Fecha y Hora"])
+                
+                # Damos un poco de formato (opcional): agregar prefijo a la cámara y redondear confianza
+                df["Cámara"] = "Cámara " + df["Cámara"].astype(str)
+                df["Nivel de Confianza"] = df["Nivel de Confianza"].apply(lambda x: f"{x:.2f}")
+
+                # Guardamos como Excel
+                df.to_excel(ruta_archivo, index=False, engine='openpyxl')
+                
+                QtWidgets.QMessageBox.information(self, "Éxito", f"Reporte guardado correctamente en:\n{ruta_archivo}")
+                
+            except Exception as e:
+                QtWidgets.QMessageBox.critical(self, "Error", f"No se pudo guardar el archivo.\nDetalle: {str(e)}\n\n¿Tienes instaladas las librerías pandas y openpyxl?")
+
+    def abrir_pestana_descargas(self):
+        """Prepara el ComboBox y abre la pestaña de descargas pasadas."""
+        self.ir_a_descargas() # Cambia a la pestaña
+        
+        # Bloqueamos las señales temporalmente para que no intente actualizar la tabla mientras se llena la lista
+        self.selectorSesion.blockSignals(True) 
+        self.selectorSesion.clear()
+        
+        # Obtenemos el historial de la BD
+        sesiones = obtener_sesiones_con_eventos()
+        
+        if not sesiones:
+            self.selectorSesion.addItem("No hay historial disponible", userData=None)
+        else:
+            for sesion_id, fecha in sesiones:
+                texto_visual = f"Sesión {sesion_id}  |  Fecha: {fecha}"
+                # Guardamos el texto visible, y escondemos el 'sesion_id' en la propiedad userData
+                self.selectorSesion.addItem(texto_visual, userData=sesion_id)
+                
+        self.selectorSesion.blockSignals(False) # Reactivamos las señales
+        
+        # Forzamos a mostrar los datos de la primera opción de la lista
+        self.mostrar_tabla_pasada()
+
+    def mostrar_tabla_pasada(self):
+        """Llena la tabla 'vistaDeEventos' con los datos de la sesión seleccionada."""
+        self.modelo_eventos_pasados.setRowCount(0) # Limpiar datos viejos de la tabla
+        
+        # Extraemos el ID real de la sesión que guardamos en userData
+        sesion_id = self.selectorSesion.currentData()
+        
+        if not sesion_id:
+            return
+            
+        # Reciclamos tu función de auth.py para obtener las filas
+        filas = actualizar_eventos_actuales(sesion_id)
+        
+        if filas:
+            for fila in filas:
+                item_camara = QStandardItem(f"Cámara {fila[0]}")
+                item_confianza = QStandardItem(f"{fila[1]:.2f}")
+                item_hora = QStandardItem(str(fila[2]))
+                
+                item_camara.setTextAlignment(QtCore.Qt.AlignCenter)
+                item_confianza.setTextAlignment(QtCore.Qt.AlignCenter)
+                item_hora.setTextAlignment(QtCore.Qt.AlignCenter)
+                
+                self.modelo_eventos_pasados.appendRow([item_camara, item_confianza, item_hora])
+
+    def descargar_reporte_seleccionado(self):
+        """Genera el archivo Excel de la sesión seleccionada en el ComboBox."""
+        sesion_id = self.selectorSesion.currentData()
+        
+        if not sesion_id:
+            QtWidgets.QMessageBox.warning(self, "Aviso", "No hay ninguna sesión válida seleccionada.")
+            return
+            
+        filas = actualizar_eventos_actuales(sesion_id)
+        
+        if not filas:
+            QtWidgets.QMessageBox.information(self, "Sin datos", "Esta sesión no contiene eventos para descargar.")
+            return
+
+        opciones = QtWidgets.QFileDialog.Options()
+        nombre_por_defecto = f"Historial_Sesion_{sesion_id}.xlsx"
+        
+        ruta_archivo, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, 
+            "Guardar Reporte Pasado", 
+            nombre_por_defecto, 
+            "Archivos Excel (*.xlsx);;Todos los archivos (*)", 
+            options=opciones
+        )
+
+        if ruta_archivo:
+            try:
+                # Usamos pandas igual que en el reporte actual
+                df = pd.DataFrame(filas, columns=["Cámara", "Nivel de Confianza", "Fecha y Hora"])
+                df["Cámara"] = "Cámara " + df["Cámara"].astype(str)
+                df["Nivel de Confianza"] = df["Nivel de Confianza"].apply(lambda x: f"{x:.2f}")
+
+                df.to_excel(ruta_archivo, index=False, engine='openpyxl')
+                QtWidgets.QMessageBox.information(self, "Éxito", f"Historial guardado correctamente en:\n{ruta_archivo}")
+            except Exception as e:
+                QtWidgets.QMessageBox.critical(self, "Error", f"No se pudo guardar el archivo.\nDetalle: {str(e)}") 
+    
+    def reproducir_sonido(self):
+        """Reproduce un archivo de audio .wav personalizado."""
+        # Asegúrate de que el archivo alerta.wav exista en tu carpeta
+        QSound.play("dronedetected.wav")
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
