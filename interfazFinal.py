@@ -92,7 +92,10 @@ class YoloWorker(QtCore.QThread):
 
         print("Modelo cargado. Iniciando cámaras...")
         self.camaras = [CameraStream(5000), CameraStream(5001), CameraStream(5002)]
-        regAnt = 0
+        
+        # --- CAMBIO AQUÍ ---
+        # En lugar de regAnt = 0, usamos una lista para rastrear las 3 cámaras individualmente
+        estado_deteccion = [False, False, False] 
         
         print("Esperando estabilización de sensores (2s)...")
         time.sleep(2)
@@ -113,19 +116,26 @@ class YoloWorker(QtCore.QThread):
             for i, r in enumerate(resultados):
                 frames_anotados.append(r.plot())
                 
-                # Modificado para usar self.sesion_id y comprobar que no sea None
-                if len(r.boxes) > 0 and r.boxes.conf.max().item() > 0.2 and regAnt != i+1:
-                    if self.sesion_id is not None: # Solo registra si alguien hizo login
-                        # Corrección: era r.boxes.conf.max().item() (faltaban los paréntesis en max)
-                        registrar_evento(self.sesion_id, i+1, r.boxes.conf.max().item(), "0", "hola")
-                        
-                        actualizar_eventos_actuales(self.sesion_id)
-                    regAnt = i+1
+                # --- CAMBIO AQUÍ ---
+                # Verificamos si en este frame exacto hay una detección válida
+                hay_deteccion = len(r.boxes) > 0 and r.boxes.conf.max().item() > 0.2
+                
+                if hay_deteccion:
+                    # Si hay detección, pero la cámara NO estaba detectando nada antes (es un evento nuevo)
+                    if not estado_deteccion[i]:
+                        if self.sesion_id is not None:
+                            registrar_evento(self.sesion_id, i+1, r.boxes.conf.max().item(), "0", "hola")
+                            actualizar_eventos_actuales(self.sesion_id)
+                        # Marcamos esta cámara como "detectando activamente" para que no vuelva a registrar
+                        estado_deteccion[i] = True 
+                else:
+                    # Si el dron desaparece de la cámara, reiniciamos el estado a False
+                    # Esto permite que se vuelva a registrar un evento si el dron vuelve a aparecer
+                    estado_deteccion[i] = False
 
             # 4. Emitir señal a la interfaz
             self.image_update.emit(frames_anotados)
             
-
         # Limpieza
         for cam in self.camaras:
             cam.stop()
