@@ -10,7 +10,6 @@ from gi.repository import Gst, GObject, GLib
 Gst.init(None)
 
 class GStreamerPipeline:
-    # ... (Se mantiene exactamente igual) ...
     def __init__(self, pipeline_desc):
         self.pipeline = Gst.parse_launch(pipeline_desc)
         self.loop = GLib.MainLoop()
@@ -47,7 +46,7 @@ class GStreamerPipeline:
 
 # --- Funciones de control remoto (cliente UDP) ---
 def send_control_command(server_ip: str, server_port: int, message: str, timeout=1.0) -> bool:
-    """Envía un comando UDP simple al servidor (CM4). Devuelve True si recibe 'OK'."""
+    """Envía un comando UDP simple al servidor. Devuelve True si recibe 'OK'."""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.settimeout(timeout)
@@ -119,15 +118,20 @@ if __name__ == "__main__":
     RPI_SERVER_IP = "192.168.8.147" 
     RPI_CONTROL_PORT = 6000
 
+    # --- CAMBIO PRINCIPAL PARA JETSON ORIN NANO ---
+    # Se reemplaza 'decodebin ! videoconvert ! autovideosink' por aceleración por hardware
+    # 'nvv4l2decoder' usa el decodificador de video por hardware de la Jetson
+    # 'nv3dsink sync=false' renderiza el video sin forzar sincronización de reloj, ideal para baja latencia
     PIPELINE_DESCRIPTION = (
         "udpsrc port=5002 caps=\"application/x-rtp, media=video, clock-rate=90000, encoding-name=H264, payload=96\" "
-        "! rtph264depay ! h264parse ! decodebin ! videoconvert ! autovideosink"
+        "! rtph264depay ! h264parse ! nvv4l2decoder ! nvvidconv ! nv3dsink sync=false"
     )
 
     client = GStreamerPipeline(PIPELINE_DESCRIPTION)
     client.start()
 
-    print(f"✅ Cliente de video iniciado escuchando en el puerto 5000.")
+    # Corregido el mensaje del puerto para que coincida con el udpsrc (5002)
+    print(f"✅ Cliente de video iniciado escuchando en el puerto 5002.")
     print(f"🔁 Los comandos de control se enviarán a {RPI_SERVER_IP}:{RPI_CONTROL_PORT}.")
 
     try:
