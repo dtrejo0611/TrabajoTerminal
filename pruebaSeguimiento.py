@@ -76,18 +76,27 @@ if __name__ == "__main__":
     pan_angle = 90.0  # Servo 1 (Centro)
     tilt_angle = 90.0 # Servo 0 (Centro)
     
-    # Constante Proporcional (Convierte píxeles de error a grados). 
-    # Si el tracking es muy lento, súbelo (ej. 0.08). Si oscila mucho, bájalo (ej. 0.02).
-    Kp_pan = 0.05  
-    Kp_tilt = 0.05 
+    # Constantes Control Proporcional (PAN)
+    Kp_pan = 0.01
     
-    deadzone = 40 # Zona muerta en píxeles. Si el dron está dentro de este radio del centro, no se mueve.
+    # Constantes Control PID (TILT)
+    Kp_tilt = 0.015    # Proporcional: Fuerza de reacción inmediata
+    Ki_tilt = 0.001   # Integral: Corrige el error a largo plazo
+    Kd_tilt = 0.03   # Derivativo: Amortigua el movimiento (evita oscilaciones)
+    
+    # Variables de estado para el PID del Tilt
+    prev_error_y = 0.0
+    integral_y = 0.0
+    max_integral = 500.0 # Anti-windup: Límite para evitar que la integral crezca infinito
+    
+    deadzone = 60 # Zona muerta en píxeles.
     
     last_servo_update = time.time()
     servo_update_rate = 0.1 # Enviar comandos máximo cada 0.1 segundos (10 Hz)
 
     pipeline = (
         "udpsrc port=5002 ! application/x-rtp, encoding-name=H264, payload=96 ! "
+        "rtpjitterbuffer latency=200 ! "
         "rtph264depay ! h264parse ! nvv4l2decoder ! nvvidconv ! "
         "video/x-raw, width=640, height=360 ! videoconvert ! video/x-raw, format=BGR ! "
         "appsink sync=false drop=true max-buffers=1"
@@ -126,29 +135,55 @@ if __name__ == "__main__":
                 error_x = obj_cx - CENTER_X
                 error_y = obj_cy - CENTER_Y
                 
+                current_time = time.time()
+                dt = current_time - last_servo_update
+                
                 # Actualizar servos si ha pasado suficiente tiempo
-                if time.time() - last_servo_update > servo_update_rate:
+                if dt > servo_update_rate:
                     mover = False
                     
-                    # PAN (Izquierda / Derecha) -> Servo 1
+                    # --- CONTROL P (PAN - Izquierda / Derecha) ---
                     if abs(error_x) > deadzone:
                         pan_angle += error_x * Kp_pan
-                        pan_angle = max(0.0, min(180.0, pan_angle)) # Limitar entre 0 y 180
+                        pan_angle = max(0.0, min(180.0, pan_angle))
+                        pan_angle_enviar = 180 - pan_angle
                         mover = True
                         
-                    # TILT (Arriba / Abajo) -> Servo 0
+                    # --- CONTROL PID (TILT - Arriba / Abajo) ---
                     if abs(error_y) > deadzone:
-                        tilt_angle += error_y * Kp_tilt
-                        tilt_angle = max(0.0, min(180.0, tilt_angle)) # Limitar entre 0 y 180
+                        # 1. Proporcional
+                        P_out = Kp_tilt * error_y
+                        
+                        # 2. Integral (con Anti-Windup)
+                        integral_y += error_y * dt
+                        integral_y = max(-max_integral, min(max_integral, integral_y)) # Limitar
+                        I_out = Ki_tilt * integral_y
+                        
+                        # 3. Derivativo
+                        D_out = Kd_tilt * ((error_y - prev_error_y) / dt) if dt > 0 else 0.0
+                        
+                        # Salida Total PID
+                        pid_output_y = P_out + I_out + D_out
+                        
+                        # Aplicar al ángulo
+                        tilt_angle += pid_output_y
+                        tilt_angle = max(0.0, min(180.0, tilt_angle))
+                        
+                        # Mapeo de inversión (si estaba en tu código original)
+                        tilt_angle_envio = 180.0 - tilt_angle 
                         mover = True
+                    else:
+                        # Si está en la zona muerta, resetear la integral para no acumular memoria fantasma
+                        integral_y = 0.0
+                        tilt_angle_envio = 180.0 - tilt_angle
+                    
+                    # Actualizar error anterior para el próximo ciclo
+                    prev_error_y = error_y
                     
                     if mover:
-                        # NOTA: Dependiendo de cómo estén montados tus servos, 
-                        # podrías necesitar invertir la dirección. Si el servo se aleja 
-                        # en vez de acercarse, cambia += por -= en la línea del ángulo.
-                        send_control_command(RPI_SERVER_IP, RPI_CONTROL_PORT, f"SERVO 1 {pan_angle:.1f}", verbose=False)
-                        send_control_command(RPI_SERVER_IP, RPI_CONTROL_PORT, f"SERVO 0 {tilt_angle:.1f}", verbose=False)
-                        last_servo_update = time.time()
+                        send_control_command(RPI_SERVER_IP, RPI_CONTROL_PORT, f"SERVO 1 {pan_angle_enviar:.1f}", verbose=False)
+                        send_control_command(RPI_SERVER_IP, RPI_CONTROL_PORT, f"SERVO 0 {tilt_angle_envio:.1f}", verbose=False)
+                        last_servo_update = current_time
 
             cv2.imshow("Tracking Dron - YOLOv8", frame_anotado)
 
