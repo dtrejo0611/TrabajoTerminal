@@ -75,14 +75,20 @@ if __name__ == "__main__":
     
     pan_angle = 90.0  # Servo 1 (Centro)
     tilt_angle = 90.0 # Servo 0 (Centro)
+
+    print("Moviendo servos a la posición inicial (90°)...")
+    send_control_command(RPI_SERVER_IP, RPI_CONTROL_PORT, "SERVO 1 90.0")
+    send_control_command(RPI_SERVER_IP, RPI_CONTROL_PORT, "SERVO 0 90.0")
+    time.sleep(0.5) # Le damos medio segundo para que lleguen físicamente a la posición
+    # -----------------
     
     # Constantes Control Proporcional (PAN)
     Kp_pan = 0.01
     
     # Constantes Control PID (TILT)
-    Kp_tilt = 0.015    # Proporcional: Fuerza de reacción inmediata
-    Ki_tilt = 0.001   # Integral: Corrige el error a largo plazo
-    Kd_tilt = 0.03   # Derivativo: Amortigua el movimiento (evita oscilaciones)
+    Kp_tilt = 8    # Proporcional: Fuerza de reacción inmediata
+    Ki_tilt = 5   # Integral: Corrige el error a largo plazo
+    Kd_tilt = 0.1   # Derivativo: Amortigua el movimiento (evita oscilaciones)
     
     # Variables de estado para el PID del Tilt
     prev_error_y = 0.0
