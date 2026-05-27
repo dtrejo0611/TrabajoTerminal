@@ -69,36 +69,38 @@ if __name__ == "__main__":
         print(f"Error al cargar el modelo: {e}")
         sys.exit()
 
-    # Parámetros de Tracking (¡Aquí es donde tendrás que afinar!)
+    # Parámetros de Tracking
     FRAME_W, FRAME_H = 640, 360
     CENTER_X, CENTER_Y = FRAME_W / 2, FRAME_H / 2
     
     pan_angle = 90.0  # Servo 1 (Centro)
-    tilt_angle = 90.0 # Servo 0 (Centro)
+    tilt_angle = 45.0 # Servo 0 (Centro)
 
     print("Moviendo servos a la posición inicial (90°)...")
     send_control_command(RPI_SERVER_IP, RPI_CONTROL_PORT, "SERVO 1 90.0")
-    send_control_command(RPI_SERVER_IP, RPI_CONTROL_PORT, "SERVO 0 90.0")
-    time.sleep(0.5) # Le damos medio segundo para que lleguen físicamente a la posición
+    send_control_command(RPI_SERVER_IP, RPI_CONTROL_PORT, "SERVO 0 45.0")
+    time.sleep(0.5)
     # -----------------
     
-    # Constantes Control Proporcional (PAN)
-    Kp_pan = 0.03
+    # Constantes Control PI (PAN)
+    Kp_pan = 0.031678  # Tendrás que afinar este valor
+    Ki_pan = 0.2577 # Tendrás que afinar este valor
     
     # Constantes Control PID (TILT)
-    Kp_tilt = 0.03    # Proporcional: Fuerza de reacción inmediata
-    Ki_tilt = 0.02  # Integral: Corrige el error a largo plazo
-    Kd_tilt = 0.1   # Derivativo: Amortigua el movimiento (evita oscilaciones)
+    Kp_tilt = 0.0866269    # Proporcional: Fuerza de reacción inmediata
+    Ki_tilt = 0.53953  # Integral: Corrige el error a largo plazo
+    Kd_tilt = -0.00975   # Derivativo: Amortigua el movimiento (evita oscilaciones)
     
-    # Variables de estado para el PID del Tilt
+    # Variables de estado para los controladores
+    integral_x = 0.0
     prev_error_y = 0.0
     integral_y = 0.0
-    max_integral = 500.0 # Anti-windup: Límite para evitar que la integral crezca infinito
     
+    max_integral = 500.0 # Anti-windup compartido para X e Y
     deadzone = 20 # Zona muerta en píxeles.
     
     last_servo_update = time.time()
-    servo_update_rate = 0.1 # Enviar comandos máximo cada 0.1 segundos (10 Hz)
+    servo_update_rate = 0.1 # 10 Hz
 
     pipeline = (
         "udpsrc port=5002 ! application/x-rtp, encoding-name=H264, payload=96 ! "
@@ -125,65 +127,71 @@ if __name__ == "__main__":
             frame_anotado = r.plot()
             
             # --- LÓGICA DE TRACKING ---
-            boxes = r.boxes.xyxy.cpu().numpy() # Formato: [x1, y1, x2, y2]
+            boxes = r.boxes.xyxy.cpu().numpy()
             
             if len(boxes) > 0:
-                # Tomamos la primera detección (puedes agregar lógica para elegir la de mayor confianza)
                 box = boxes[0]
                 obj_cx = (box[0] + box[2]) / 2
                 obj_cy = (box[1] + box[3]) / 2
                 
-                # Dibujar un punto en el centro del objeto detectado y en el centro de la pantalla
                 cv2.circle(frame_anotado, (int(obj_cx), int(obj_cy)), 5, (0, 0, 255), -1)
                 cv2.circle(frame_anotado, (int(CENTER_X), int(CENTER_Y)), 5, (0, 255, 0), -1)
                 
-                # Calcular el error (distancia al centro)
                 error_x = obj_cx - CENTER_X
                 error_y = obj_cy - CENTER_Y
                 
                 current_time = time.time()
                 dt = current_time - last_servo_update
                 
-                # Actualizar servos si ha pasado suficiente tiempo
                 if dt > servo_update_rate:
                     mover = False
                     
-                    # --- CONTROL P (PAN - Izquierda / Derecha) ---
+                    # --- CONTROL PI (PAN - Izquierda / Derecha) ---
                     if abs(error_x) > deadzone:
-                        pan_angle += error_x * Kp_pan
+                        # 1. Proporcional
+                        P_out_x = Kp_pan * error_x
+                        
+                        # 2. Integral (con Anti-Windup)
+                        integral_x += error_x * dt
+                        integral_x = max(-max_integral, min(max_integral, integral_x))
+                        I_out_x = Ki_pan * integral_x
+                        
+                        # Salida Total PI
+                        pi_output_x = P_out_x + I_out_x
+                        
+                        pan_angle += pi_output_x
                         pan_angle = max(0.0, min(180.0, pan_angle))
-                        pan_angle_enviar = 180 - pan_angle
+                        pan_angle_enviar = 180.0 - pan_angle
                         mover = True
+                    else:
+                        # Resetear integral para no acumular memoria fantasma
+                        integral_x = 0.0
+                        pan_angle_enviar = 180.0 - pan_angle
                         
                     # --- CONTROL PID (TILT - Arriba / Abajo) ---
                     if abs(error_y) > deadzone:
                         # 1. Proporcional
-                        P_out = Kp_tilt * error_y
+                        P_out_y = Kp_tilt * error_y
                         
                         # 2. Integral (con Anti-Windup)
                         integral_y += error_y * dt
-                        integral_y = max(-max_integral, min(max_integral, integral_y)) # Limitar
-                        I_out = Ki_tilt * integral_y
+                        integral_y = max(-max_integral, min(max_integral, integral_y)) 
+                        I_out_y = Ki_tilt * integral_y
                         
                         # 3. Derivativo
-                        D_out = Kd_tilt * ((error_y - prev_error_y) / dt) if dt > 0 else 0.0
+                        D_out_y = Kd_tilt * ((error_y - prev_error_y) / dt) if dt > 0 else 0.0
                         
                         # Salida Total PID
-                        pid_output_y = P_out + I_out + D_out
+                        pid_output_y = P_out_y + I_out_y + D_out_y
                         
-                        # Aplicar al ángulo
                         tilt_angle += pid_output_y
                         tilt_angle = max(0.0, min(180.0, tilt_angle))
-                        
-                        # Mapeo de inversión (si estaba en tu código original)
                         tilt_angle_envio = 180.0 - tilt_angle 
                         mover = True
                     else:
-                        # Si está en la zona muerta, resetear la integral para no acumular memoria fantasma
                         integral_y = 0.0
                         tilt_angle_envio = 180.0 - tilt_angle
                     
-                    # Actualizar error anterior para el próximo ciclo
                     prev_error_y = error_y
                     
                     if mover:
