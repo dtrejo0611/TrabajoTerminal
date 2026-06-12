@@ -17,7 +17,7 @@ from gi.repository import Gst, GLib
 
 Gst.init(None)
 
-# Cambia puerto/caps según tu emisor. Aquí uso avdec_h264 (software) para máxima compatibilidad.
+# Cambia puerto/caps según emisor. Aquí uso avdec_h264 (software) para máxima compatibilidad.
 PIPELINE = (
     'udpsrc port=5000 caps="application/x-rtp, media=video, '
     'clock-rate=90000, encoding-name=H264, payload=96" '

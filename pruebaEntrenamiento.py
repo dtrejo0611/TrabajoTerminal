@@ -37,20 +37,20 @@ while True:
         print("Frame no recibido")
         break
 
-    # 3. INFERENCIA
-    # imgsz=640 optimiza el tamaño de entrada
-    # half=True usa FP16 (más rápido en Jetson)
-    resultados = modelo(frame, stream=True, verbose=False, imgsz=640, half=True)
+    # # 3. INFERENCIA
+    # # imgsz=640 optimiza el tamaño de entrada
+    # # half=True usa FP16 (más rápido en Jetson)
+    # resultados = modelo(frame, stream=True, verbose=False, imgsz=640, half=True)
 
-    for r in resultados:
-        # 4. VISUALIZACIÓN RÁPIDA
-        # plot() es C++ optimizado, mucho más rápido que dibujar manual con cv2.rectangle
-        frame_anotado = r.plot()
+    # for r in resultados:
+        # # 4. VISUALIZACIÓN RÁPIDA
+        # # plot() es C++ optimizado, mucho más rápido que dibujar manual con cv2.rectangle
+        # frame_anotado = r.plot()
 
-        # Si de verdad necesitas dibujar manual, descomenta tu código anterior,
-        # pero plot() es preferible para rendimiento.
+        # # Si de verdad necesitas dibujar manual, descomenta tu código anterior,
+        # # pero plot() es preferible para rendimiento.
 
-    cv2.imshow("Resultados", frame_anotado)
+    # cv2.imshow("Resultados", frame_anotado)
 
     # WaitKey(1) es suficiente
     if cv2.waitKey(1) == ord('q'):

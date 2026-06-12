@@ -9,7 +9,6 @@ from gi.repository import Gst, GObject, GLib
 
 Gst.init(None)
 
-
 class GStreamerPipeline:
     def __init__(self, pipeline_desc):
         self.pipeline = Gst.parse_launch(pipeline_desc)
@@ -31,16 +30,14 @@ class GStreamerPipeline:
         return True
 
     def run_pipeline(self):
-        # El loop.run() se ejecuta en el hilo separado
         self.pipeline.set_state(Gst.State.PLAYING)
         self.loop.run()
 
     def start(self):
-        print("▶️ Iniciando reproducción en hilo separado...")
+        print("▶️ Iniciando reproducción de video en hilo separado...")
         self.thread.start()
 
     def stop(self):
-        # Función para detener el loop y liberar recursos
         if self.loop.is_running():
             self.loop.quit()
         if self.pipeline:
@@ -49,7 +46,7 @@ class GStreamerPipeline:
 
 # --- Funciones de control remoto (cliente UDP) ---
 def send_control_command(server_ip: str, server_port: int, message: str, timeout=1.0) -> bool:
-    """Envía un comando UDP simple al servidor (CM4). Devuelve True si recibe 'OK'."""
+    """Envía un comando UDP simple al servidor. Devuelve True si recibe 'OK'."""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.settimeout(timeout)
@@ -58,7 +55,6 @@ def send_control_command(server_ip: str, server_port: int, message: str, timeout
             resp, _ = s.recvfrom(1024)
             return resp.strip().upper() == b"OK"
         except socket.timeout:
-            # No hubo respuesta, pero el comando pudo haberse recibido; informar al usuario
             print("⚠️ No se recibió ack del servidor (timeout).")
             return False
         finally:
@@ -69,40 +65,48 @@ def send_control_command(server_ip: str, server_port: int, message: str, timeout
 
 
 def interactive_command_loop(server_ip: str, server_port: int):
-    """Bucle interactivo para enviar comandos desde el cliente."""
-    print("\nEscribe comandos para controlar LEDs en la CM4:")
-    print("  on <pin>     -> enciende LED (ej: on 17)")
-    print("  off <pin>    -> apaga LED")
-    print("  toggle <pin> -> alterna estado")
-    print("  set <pin> <0|1> -> fija estado")
-    print("  quit         -> salir")
+    """Bucle interactivo adaptado EXCLUSIVAMENTE para enviar comandos de Servo."""
+    print("\n" + "="*45)
+    print("🎮 CONTROL DE SERVOS ACTIVADO")
+    print("="*45)
+    print("Escribe el comando en este formato:")
+    print("  servo <canal> <ángulo>")
+    print("\nEjemplos:")
+    print("  servo 0 90    -> Mueve el servo del canal 0 a 90 grados")
+    print("  servo 3 180   -> Mueve el servo del canal 3 a 180 grados")
+    print("  quit          -> Para salir")
+    print("="*45 + "\n")
+    
     try:
         while True:
-            cmd = input("> ").strip()
+            cmd = input("Control_Servo > ").strip()
             if not cmd:
                 continue
+            
             if cmd.lower() in ("quit", "exit"):
                 break
+                
             parts = cmd.split()
-            if parts[0].lower() in ("on", "off", "toggle") and len(parts) >= 2:
-                action = parts[0].upper()
-                pin = parts[1]
-                if action == "on":
-                    msg = f"LED ON {pin}"
-                elif action == "off":
-                    msg = f"LED OFF {pin}"
-                else:
-                    msg = f"LED TOGGLE {pin}"
-            elif parts[0].lower() == "set" and len(parts) >= 3:
-                pin = parts[1]
-                val = parts[2]
-                msg = f"SET {pin} {val}"
+            
+            # Validamos que el comando empiece por "servo" y tenga 3 partes
+            if parts[0].lower() == "servo" and len(parts) == 3:
+                try:
+                    # Validamos que los parámetros sean números antes de enviar
+                    channel = int(parts[1])
+                    angle = float(parts[2])
+                    
+                    # Formateamos el mensaje tal como lo espera la Raspberry Pi
+                    msg = f"SERVO {channel} {angle}"
+                    
+                    # Enviamos el comando
+                    ok = send_control_command(server_ip, server_port, msg)
+                    print("✅ Comando aceptado (ACK)" if ok else "❌ Fallo en la comunicación (NO ACK)")
+                    
+                except ValueError:
+                    print("⚠️ Error: El canal y el ángulo deben ser números (Ej: servo 0 90)")
             else:
-                print("Comando inválido. Vea las instrucciones arriba.")
-                continue
-
-            ok = send_control_command(server_ip, server_port, msg)
-            print("ACK" if ok else "NO ACK")
+                print("⚠️ Comando inválido. Usa el formato: servo <canal> <ángulo>")
+                
     except KeyboardInterrupt:
         print("\nInterrupción de usuario en el bucle de comandos.")
 
@@ -110,24 +114,28 @@ def interactive_command_loop(server_ip: str, server_port: int):
 # --- Ejecución Principal ---
 if __name__ == "__main__":
 
-    # IP del servidor (Raspberry Pi CM4) a la que enviar comandos.
-    # Ajusta esta IP a la dirección de tu CM4 en la red.
-    RPI_SERVER_IP = "192.168.1.132"
+    # IP de la Raspberry Pi (Asegúrate de que sea la correcta)
+    RPI_SERVER_IP = "192.168.8.147" 
     RPI_CONTROL_PORT = 6000
 
+    # --- CAMBIO PRINCIPAL PARA JETSON ORIN NANO ---
+    # Se reemplaza 'decodebin ! videoconvert ! autovideosink' por aceleración por hardware
+    # 'nvv4l2decoder' usa el decodificador de video por hardware de la Jetson
+    # 'nv3dsink sync=false' renderiza el video sin forzar sincronización de reloj, ideal para baja latencia
     PIPELINE_DESCRIPTION = (
-        "udpsrc port=5000 caps=\"application/x-rtp, media=video, clock-rate=90000, encoding-name=H264, payload=96\" "
-        "! rtph264depay ! h264parse ! decodebin ! videoconvert ! autovideosink"
+        "udpsrc port=5002 caps=\"application/x-rtp, media=video, clock-rate=90000, encoding-name=H264, payload=96\" "
+        "! rtph264depay ! h264parse ! nvv4l2decoder ! nvvidconv ! nv3dsink sync=false"
     )
 
     client = GStreamerPipeline(PIPELINE_DESCRIPTION)
     client.start()
 
-    print("✅ Cliente iniciado. Presiona Ctrl+C para detener el proceso principal.")
-    print(f"🔁 Enviaré comandos UDP a {RPI_SERVER_IP}:{RPI_CONTROL_PORT} cuando uses el bucle interactivo.")
+    # Corregido el mensaje del puerto para que coincida con el udpsrc (5002)
+    print(f"✅ Cliente de video iniciado escuchando en el puerto 5002.")
+    print(f"🔁 Los comandos de control se enviarán a {RPI_SERVER_IP}:{RPI_CONTROL_PORT}.")
 
-    # Arrancar el bucle de comandos en el hilo principal para que sea interactivo
     try:
+        # Iniciamos el menú interactivo para los servos
         interactive_command_loop(RPI_SERVER_IP, RPI_CONTROL_PORT)
 
     except KeyboardInterrupt:
