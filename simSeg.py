@@ -84,7 +84,7 @@ def interactive_command_loop(server_ip: str, server_port: int):
 
 # --- 2. HILO PRINCIPAL: VISIÓN Y TRACKING ---
 if __name__ == "__main__":
-    RPI_SERVER_IP = "192.168.8.147" 
+    RPI_SERVER_IP = "192.168.8.172" 
     RPI_CONTROL_PORT = 6000
 
     hilo_control = threading.Thread(target=interactive_command_loop, args=(RPI_SERVER_IP, RPI_CONTROL_PORT), daemon=True)
@@ -180,7 +180,7 @@ if __name__ == "__main__":
             
             # Centro de la pantalla (Verde)
             cv2.circle(frame_anotado, (int(CENTER_X), int(CENTER_Y)), 5, (0, 255, 0), -1)
-            
+																																								
             # --- CONTROL PI / PID ---
             if obj_cx is not None and obj_cy is not None:
                 error_x = obj_cx - CENTER_X

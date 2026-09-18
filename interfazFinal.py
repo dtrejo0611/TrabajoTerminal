@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import threading
 import time
+import socket
 import pandas as pd 
 from ultralytics import YOLO
 
@@ -68,6 +69,16 @@ class CameraStream:
         self.t.join()
         self.cap.release()
 
+# --- FUNCIONES DE CONTROL UDP ---
+def send_control_command(server_ip: str, server_port: int, message: str) -> None:
+    """Envía un comando UDP al controlador físico sin bloquear el hilo."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.sendto(message.encode(), (server_ip, server_port))
+        s.close()
+    except Exception as e:
+        pass
+
 # --- 3. WORKER THREAD (YOLO EN SEGUNDO PLANO) ---
 class YoloWorker(QtCore.QThread):
     image_update = QtCore.pyqtSignal(list)
@@ -80,6 +91,10 @@ class YoloWorker(QtCore.QThread):
         self.modelo = None
         # NUEVO: Agregamos una variable para almacenar la sesión actual
         self.sesion_id = None 
+        
+        #Agregamos las ip y el puerto udp para transmitir las coordenadas del drone a cada camara
+        self.rpi_ips = ["192.168.8.224", "192.168.8.172", "192.168.8.147"] 
+        self.rpi_ports = [6000, 6000, 6000]
         
     def set_sesion(self, sesion_id):
         # NUEVO: Método para que MainWindow actualice la sesión aquí
@@ -95,7 +110,7 @@ class YoloWorker(QtCore.QThread):
             return
 
         print("Modelo cargado. Iniciando cámaras...")
-        self.camaras = [CameraStream(5000), CameraStream(5001), CameraStream(5002)]
+        self.camaras = [CameraStream(5001), CameraStream(5002), CameraStream(5003)]
         
         # --- CAMBIO AQUÍ ---
         # En lugar de regAnt = 0, usamos una lista para rastrear las 3 cámaras individualmente
@@ -121,20 +136,28 @@ class YoloWorker(QtCore.QThread):
                 frames_anotados.append(r.plot())
                 
                 # --- CAMBIO AQUÍ ---
-                # Verificamos si en este frame exacto hay una detección válida
                 hay_deteccion = len(r.boxes) > 0 and r.boxes.conf.max().item() > 0.2
                 
                 if hay_deteccion:
-                    # Si hay detección, pero la cámara NO estaba detectando nada antes (es un evento nuevo)
+                    # 1. Calcular coordenadas del objetivo (centro de la caja delimitadora)
+                    boxes = r.boxes.xyxy.cpu().numpy()
+                    box = boxes[0] # Tomar la primera detección 
+                    obj_cx = (box[0] + box[2]) / 2
+                    obj_cy = (box[1] + box[3]) / 2
+                    
+                    # 2. Enviar las coordenadas a la IP/Puerto correspondiente a esta cámara
+                    send_control_command(self.rpi_ips[i], self.rpi_ports[i], f"TARGET {obj_cx:.1f} {obj_cy:.1f}")
+                    
+                    # 3. Lógica existente de registro en la base de datos y la interfaz
                     if not estado_deteccion[i]:
                         if self.sesion_id is not None:
                             registrar_evento(self.sesion_id, i+1, r.boxes.conf.max().item(), "0", "hola")
                             self.eventos_update.emit()
-                        # Marcamos esta cámara como "detectando activamente" para que no vuelva a registrar
                         estado_deteccion[i] = True 
                 else:
-                    # Si el dron desaparece de la cámara, reiniciamos el estado a False
-                    # Esto permite que se vuelva a registrar un evento si el dron vuelve a aparecer
+                    # Enviar señal de objetivo perdido para esta cámara específica
+                    send_control_command(self.rpi_ips[i], self.rpi_ports[i], "LOST")
+                    
                     estado_deteccion[i] = False
 
             # 4. Emitir señal a la interfaz
