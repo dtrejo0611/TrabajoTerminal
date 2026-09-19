@@ -6,7 +6,7 @@ if __name__ == "__main__":
 
     # Entrenamiento optimizado
     modelo.train(
-        data="./datasets/djiV2/data.yaml",
+        data="./ReentrenamientoF/data.yaml",
         epochs=150,           # Subimos a 150, el Early Stopping lo parará si acaba antes
         patience=50,          # Si no mejora en 30 épocas, se detiene solo
         batch=16,             # 16 es seguro para la RTX 4050 con el modelo 's'
@@ -15,6 +15,6 @@ if __name__ == "__main__":
         workers=4,            # Núcleos de CPU para cargar datos
         pretrained=True,      # Correcto
         cache=True,           # ACELERA MUCHO: carga las 1000 fotos en RAM
-        project="Dron_DetectionV2", # Nombre de la carpeta de salida para orden
-        name="entrenamiento_v1"
+        project="Dron_DetectionV3", # Nombre de la carpeta de salida para orden
+        name="entrenamiento_v3"
     )
