@@ -8,7 +8,7 @@ if torch.cuda.is_available():
     torch.cuda.empty_cache()
 
 print("Cargando modelo...")
-model = YOLO("dron.pt")
+model = YOLO("modeloV3.pt")
 
 print("Generando Engine con BATCH FIJO = 3...")
 # Al poner dynamic=False y batch=3, "cableamos" el modelo.
@@ -22,4 +22,4 @@ model.export(
     simplify=True
 )
 
-print("¡Listo! Nuevo 'dron.engine' creado para 3 cámaras.")
+print("¡Listo! Nuevo 'dronV3Y8.engine' creado para 3 cámaras.")

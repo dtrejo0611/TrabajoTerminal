@@ -104,7 +104,7 @@ class YoloWorker(QtCore.QThread):
         print("--- INICIANDO SISTEMA EN SEGUNDO PLANO ---")
         print("Cargando modelo YOLO Batch=3...")
         try:
-            self.modelo = YOLO("dron.engine", task="detect")
+            self.modelo = YOLO("dronV3Y8.engine", task="detect")
         except Exception as e:
             print(f"Error cargando modelo: {e}. Revise la ruta del archivo .engine")
             return
