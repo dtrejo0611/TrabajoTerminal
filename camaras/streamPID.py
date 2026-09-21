@@ -7,7 +7,7 @@ import socket
 
 # --- Configuración del Stream ---
 CLIENT_IP = "192.168.8.175"
-PORT = "5003"
+PORT = "5002"
 BITRATE = "2000000"
 
 CONTROL_PORT = 6000
@@ -27,15 +27,15 @@ class ServoController:
         try:
             from adafruit_servokit import ServoKit
             self.pca = ServoKit(channels=channels)
-            
+
             calibraciones = {
                 0: (500, 2400),
                 1: (750, 2500),
             }
-            
+
             for canal, (p_min, p_max) in calibraciones.items():
                 self.pca.servo[canal].set_pulse_width_range(p_min, p_max)
-            
+
             self._use_servo = True
             print("PCA9685 detectado y configurado para servos.")
         except Exception as e:
@@ -50,17 +50,17 @@ class ServoController:
         offset = offsets.get(channel, 0)
         anguloC = angle + offset
         safe_angle = max(0, min(180, anguloC))
-        
+
         if self._use_servo:
             try:
                 self.pca.servo[channel].angle = safe_angle
             except ValueError as ve:
                 print(f"Error al mover servo: {ve}")
                 return False
-                
+
         print(f"   -> Servo canal {channel} movido a {safe_angle:.2f} grados")
         return True
-        
+
     def disable(self, channel):
         """Desactiva un canal para que el servo no haga fuerza."""
         if self._use_servo and (0 <= channel <= 15):
@@ -74,36 +74,36 @@ class ServoTracker:
         self.FRAME_W, self.FRAME_H = 640, 360
         self.CENTER_X = self.FRAME_W / 2
         self.CENTER_Y = self.FRAME_H / 2
-        
+
         self.pan_angle = 90.0  # Servo 1 (Centro)
         self.tilt_angle = 90.0 # Servo 0 (Centro)
-        
+
         # Constantes de Control PID para PAN
         self.Kp_pan = 0.015
         self.Ki_pan = 0.001
         self.Kd_pan = 0.01
 
-        # Constantes de Control PID para TILT
-        self.Kp_tilt = 0.01
+        # Constantes de Control PID para TILT (Mantenidas del original)
+        self.Kp_tilt = 0.002
         self.Ki_tilt = 0.0
-        self.Kd_tilt = 0.01
-        
+        self.Kd_tilt = 0.03
+
         # Variables de estado PID
         self.prev_error_x = 0.0
         self.integral_x = 0.0
         self.prev_error_y = 0.0
         self.integral_y = 0.0
-        
+
         self.max_integral = 100.0
         self.deadzone = 20
-        
+
         self.last_update = time.time()
-        self.last_target_time = time.time() # Registra cuándo se vio el dron por última vez
+        self.last_target_time = time.time()
         self.update_rate = 0.1
 
         # Configuración de modo escaneo (Lost)
         self.pan_sweep_dir = 1
-        self.pan_sweep_speed = 1.0 # Velocidad de paneo en grados por ciclo
+        self.pan_sweep_speed = 1.0
 
         # Posición inicial
         self.servo.set_angle(1, 90.0)
@@ -112,11 +112,11 @@ class ServoTracker:
     def update_target(self, obj_cx, obj_cy) -> bool:
         current_time = time.time()
         dt = current_time - self.last_update
-        self.last_target_time = current_time # Actualiza el tiempo del dron detectado
-        
+        self.last_target_time = current_time
+
         error_x = obj_cx - self.CENTER_X
         error_y = obj_cy - self.CENTER_Y
-        
+
         mover = False
 
         # --- Control PID (PAN) ---
@@ -127,9 +127,9 @@ class ServoTracker:
                 self.integral_x = max(-self.max_integral, min(self.max_integral, self.integral_x))
                 I_out_x = self.Ki_pan * self.integral_x
                 D_out_x = self.Kd_pan * ((error_x - self.prev_error_x) / dt)
-                
+
                 pid_output_x = P_out_x + I_out_x + D_out_x
-                pid_output_x = max(-3.0, min(3.0, pid_output_x)) # Limita el salto máximo
+                pid_output_x = max(-3.0, min(3.0, pid_output_x))
                 self.pan_angle += pid_output_x
                 self.pan_angle = max(0.0, min(180.0, self.pan_angle))
 
@@ -147,11 +147,11 @@ class ServoTracker:
                 self.integral_y = max(-self.max_integral, min(self.max_integral, self.integral_y))
                 I_out_y = self.Ki_tilt * self.integral_y
                 D_out_y = self.Kd_tilt * ((error_y - self.prev_error_y) / dt)
-                
+
                 pid_output_y = P_out_y + I_out_y + D_out_y
                 pid_output_y = max(-2.0, min(2.0, pid_output_y))
                 self.tilt_angle += pid_output_y
-                
+
                 # Restricción estricta de Tilt entre 45 y 135
                 self.tilt_angle = max(45.0, min(135.0, self.tilt_angle))
 
@@ -162,26 +162,25 @@ class ServoTracker:
         self.prev_error_y = error_y
 
         if mover and dt > self.update_rate:
+            # En este script, el Paneo se invierte (180 - pan) y el Tilt va directo
             self.servo.set_angle(1, 180.0 - self.pan_angle)
-            self.servo.set_angle(0, 180.0 - self.tilt_angle)
+            self.servo.set_angle(0, self.tilt_angle)
             self.last_update = current_time
 
         return True
 
     def reset_target(self):
-        """Se llama cuando el cliente manda el comando LOST."""
         self.integral_x = 0.0
         self.integral_y = 0.0
         self.prev_error_x = 0.0
         self.prev_error_y = 0.0
-        # Forzar entrada al modo escaneo de inmediato
-        self.last_target_time = 0 
+        self.last_target_time = 0
         return True
 
     def idle_sweep(self):
         """Modo de búsqueda: Tilt a 70 grados, Paneo continuo."""
         self.tilt_angle = 70.0
-        
+
         self.pan_angle += self.pan_sweep_speed * self.pan_sweep_dir
         if self.pan_angle >= 180.0:
             self.pan_angle = 180.0
@@ -191,8 +190,7 @@ class ServoTracker:
             self.pan_sweep_dir = 1
 
         self.servo.set_angle(1, 180.0 - self.pan_angle)
-        self.servo.set_angle(0, 180.0 - self.tilt_angle)
-
+        self.servo.set_angle(0, self.tilt_angle)
 
 # --- Servidor UDP ---
 class ControlServer(threading.Thread):
@@ -254,7 +252,7 @@ class ControlServer(threading.Thread):
             except ValueError:
                 return False
             return self.servo.set_angle(channel, angle)
-            
+
         elif parts[0] in ("TARGET", "COORD"):
             if len(parts) < 3:
                 return False
@@ -264,7 +262,7 @@ class ControlServer(threading.Thread):
             except ValueError:
                 return False
             return self.tracker.update_target(cx, cy)
-            
+
         elif parts[0] == "LOST":
             return self.tracker.reset_target()
         else:
@@ -302,7 +300,7 @@ def stop_stream(process):
 if __name__ == "__main__":
     stream_process = None
     control_server = None
-    
+
     servo_ctrl = ServoController()
     tracker = ServoTracker(servo_ctrl)
 
@@ -317,10 +315,8 @@ if __name__ == "__main__":
         print("Presiona Ctrl+C para salir.")
 
         while True:
-            # Reducimos el sleep para que el escaneo sea fluido
-            time.sleep(0.05) 
-            
-            # Si pasa 1 segundo sin actualizaciones del dron (o se manda LOST), entra en escaneo
+            time.sleep(0.05)
+
             if time.time() - tracker.last_target_time > 1.0:
                 tracker.idle_sweep()
 
@@ -334,7 +330,7 @@ if __name__ == "__main__":
         if control_server:
             control_server.stop()
             control_server.join(timeout=2)
-        
+
         for i in range(16):
             servo_ctrl.disable(i)
 
