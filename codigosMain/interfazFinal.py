@@ -93,7 +93,7 @@ class YoloWorker(QtCore.QThread):
         self.sesion_id = None 
         
         #Agregamos las ip y el puerto udp para transmitir las coordenadas del drone a cada camara
-        self.rpi_ips = ["192.168.8.224", "192.168.8.172", "192.168.8.147"] 
+        self.rpi_ips = ["cam1.local", "cam2.local", "cam3.local"]
         self.rpi_ports = [6000, 6000, 6000]
         
     def set_sesion(self, sesion_id):
