@@ -2,7 +2,7 @@ from ultralytics import YOLO
 
 if __name__ == "__main__":
     # Cargamos el modelo Small (buen balance para la Jetson Orin Nano)
-    modelo = YOLO("yolov8s.pt")
+    modelo = YOLO("yolo11s.pt")
 
     # Entrenamiento optimizado
     modelo.train(
@@ -15,6 +15,6 @@ if __name__ == "__main__":
         workers=4,            # Núcleos de CPU para cargar datos
         pretrained=True,      # Correcto
         cache=True,           # ACELERA MUCHO: carga las 1000 fotos en RAM
-        project="Dron_DetectionV3", # Nombre de la carpeta de salida para orden
-        name="entrenamiento_v3"
+        project="Dron_DetectionV3Y11", # Nombre de la carpeta de salida para orden
+        name="entrenamiento_v3Y11"
     )
