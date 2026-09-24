@@ -8,7 +8,7 @@ if torch.cuda.is_available():
     torch.cuda.empty_cache()
 
 print("Cargando modelo...")
-model = YOLO("modeloV3.pt")
+model = YOLO("modelov3y11.pt")
 
 print("Generando Engine con BATCH FIJO = 3...")
 # Al poner dynamic=False y batch=3, "cableamos" el modelo.
